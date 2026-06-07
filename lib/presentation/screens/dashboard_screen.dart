@@ -5,11 +5,28 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/user.dart';
-import '../../core/widgets/app_logo.dart';
 import '../../core/widgets/error_widget.dart';
 import '../providers/auth_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/profile_provider.dart';
+
+/// رسالة الترحيب حسب الوقت
+String _greeting() {
+  final h = DateTime.now().hour;
+  if (h >= 5  && h < 12) return 'صباح الخير';
+  if (h >= 12 && h < 17) return 'مساء النور';
+  if (h >= 17 && h < 21) return 'مساء الخير';
+  return 'تصبح على خير';
+}
+
+/// أيقونة الوقت
+IconData _greetingIcon() {
+  final h = DateTime.now().hour;
+  if (h >= 5  && h < 12) return Icons.wb_sunny_rounded;
+  if (h >= 12 && h < 17) return Icons.light_mode_rounded;
+  if (h >= 17 && h < 21) return Icons.nights_stay_rounded;
+  return 'تصبح على خير' == '' ? Icons.bedtime_rounded : Icons.bedtime_rounded;
+}
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -20,7 +37,6 @@ class DashboardScreen extends ConsumerWidget {
     final authState    = ref.watch(authProvider);
     final dashAsync    = ref.watch(dashboardProvider);
     final userId       = authState is AuthAuthenticated ? authState.user.id : 0;
-    // profileProvider guards itself — safe to call even during transition
     final profileAsync = userId > 0
         ? ref.watch(profileProvider(userId))
         : const AsyncValue<User>.loading();
@@ -35,7 +51,7 @@ class DashboardScreen extends ConsumerWidget {
           slivers: [
             // ── SliverAppBar ────────────────────────────────────────────
 SliverAppBar(
-  expandedHeight: 140,
+  expandedHeight: 135,
   pinned: true,
   elevation: 0,
   backgroundColor: AppTheme.brandRed,
@@ -62,29 +78,79 @@ SliverAppBar(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              
-              // ── Top Row (Logo + Actions)
+
+              // ── Top Row: Avatar + Greeting + Actions ─────────────────
               Row(
                 children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    padding: const EdgeInsets.all(5),
-                    child: const AppLogo(size: 34),
+                  // ── Avatar ──────────────────────────────────────────
+                  profileAsync.when(
+                    loading: () => _AvatarPlaceholder(initials: ''),
+                    error: (_, __) => _AvatarPlaceholder(initials: ''),
+                    data: (user) {
+                      final initials = user.displayName.isNotEmpty
+                          ? user.displayName.trim()[0].toUpperCase()
+                          : '؟';
+                      if (user.avatarUrl.isNotEmpty) {
+                        return _NetworkAvatar(url: user.avatarUrl);
+                      }
+                      return _AvatarPlaceholder(initials: initials);
+                    },
                   ),
 
-                  const Spacer(),
+                  const SizedBox(width: 12),
 
+                  // ── Greeting text ────────────────────────────────────
+                  Expanded(
+                    child: profileAsync.when(
+                      loading: () => _GreetingShimmer(),
+                      error: (_, __) => const SizedBox.shrink(),
+                      data: (user) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // وقت اليوم
+                          Row(
+                            children: [
+                              Icon(
+                                _greetingIcon(),
+                                color: Colors.white.withValues(alpha: 0.85),
+                                size: 14,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                _greeting(),
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.85),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          // اسم المستخدم
+                          Text(
+                            user.displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              height: 1.1,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // ── Actions ──────────────────────────────────────────
                   IconButton(
                     icon: const Icon(Icons.notifications_none_rounded,
                         color: Colors.white),
                     onPressed: () {},
                   ),
-
                   IconButton(
                     icon: const Icon(Icons.logout_rounded,
                         color: Colors.white),
@@ -98,35 +164,14 @@ SliverAppBar(
                 ],
               ),
 
-              // ── Bottom Section (Greeting)
-              profileAsync.when(
-                loading: () => const SizedBox(height: 18),
-                error: (_, __) => const SizedBox.shrink(),
-                data: (user) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'مرحباً، ${user.displayName}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          height: 1.1,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'تابع تقدمك اليوم واستمر في التعلم',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.85),
-                          fontSize: 12.5,
-                        ),
-                      ),
-                    ],
+              // ── Bottom subtitle ──────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  'تابع تقدمك اليوم واستمر في التعلم 🎯',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.75),
+                    fontSize: 12,
                   ),
                 ),
               ),
@@ -444,6 +489,92 @@ class _InProgressCard extends StatelessWidget {
           const SizedBox(width: 12),
         ]),
       ),
+    );
+  }
+}
+
+// ── Avatar: صورة من الشبكة ────────────────────────────────────────────────────
+class _NetworkAvatar extends StatelessWidget {
+  final String url;
+  const _NetworkAvatar({required this.url});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 46,
+      height: 46,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 2),
+      ),
+      child: ClipOval(
+        child: CachedNetworkImage(
+          imageUrl: url,
+          fit: BoxFit.cover,
+          placeholder: (_, __) => _AvatarPlaceholder(initials: ''),
+          errorWidget: (_, __, ___) => _AvatarPlaceholder(initials: '؟'),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Avatar: حرف أولي (fallback) ───────────────────────────────────────────────
+class _AvatarPlaceholder extends StatelessWidget {
+  final String initials;
+  const _AvatarPlaceholder({required this.initials});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 46,
+      height: 46,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white.withValues(alpha: 0.2),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 2),
+      ),
+      alignment: Alignment.center,
+      child: initials.isEmpty
+          ? const Icon(Icons.person_rounded, color: Colors.white, size: 24)
+          : Text(
+              initials,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+    );
+  }
+}
+
+// ── Greeting shimmer أثناء تحميل البروفايل ────────────────────────────────────
+class _GreetingShimmer extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 70,
+          height: 11,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.25),
+            borderRadius: BorderRadius.circular(6),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          width: 130,
+          height: 16,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.35),
+            borderRadius: BorderRadius.circular(6),
+          ),
+        ),
+      ],
     );
   }
 }
