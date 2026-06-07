@@ -83,21 +83,24 @@ SliverAppBar(
               Row(
                 children: [
                   // ── Avatar ──────────────────────────────────────────
-                  profileAsync.when(
-                    loading: () => _AvatarPlaceholder(initials: ''),
-                    error: (_, __) => _AvatarPlaceholder(initials: ''),
-                    data: (user) {
-                      final initials = user.displayName.isNotEmpty
-                          ? user.displayName.trim()[0].toUpperCase()
-                          : '؟';
-                      if (user.avatarUrl.isNotEmpty) {
-                        return _NetworkAvatar(url: user.avatarUrl);
-                      }
-                      return _AvatarPlaceholder(initials: initials);
-                    },
-                  ),
+profileAsync.when(
+  loading: () => _AvatarPlaceholder(initials: ''),
+  error: (_, __) => _AvatarPlaceholder(initials: ''),
+  data: (user) {
+    final name = user.displayName ?? '';
+    final avatar = user.avatarUrl ?? '';
 
-                  const SizedBox(width: 12),
+    final initials = name.trim().isNotEmpty
+        ? name.trim()[0].toUpperCase()
+        : '؟';
+
+    if (avatar.isNotEmpty) {
+      return _NetworkAvatar(url: avatar);
+    }
+
+    return _AvatarPlaceholder(initials: initials);
+  },
+),
 
                   // ── Greeting text ────────────────────────────────────
                   Expanded(
