@@ -40,10 +40,9 @@ class DashboardScreen extends ConsumerWidget {
     // ✅ الحصول على المستخدم مباشرة من authState
     final currentUser = authState is AuthAuthenticated ? authState.user : null;
     
-    // ✅ اسم المستخدم مع منطق قوي جداً
-    // يفحص عدة مصادر للاسم
+    // ✅ اسم المستخدم مع منطق قوي
     String getDisplayName() {
-      // 1. من authState
+      // 1. من displayName
       if (currentUser?.displayName?.trim().isNotEmpty == true) {
         return currentUser!.displayName!.trim();
       }
@@ -108,11 +107,41 @@ class DashboardScreen extends ConsumerWidget {
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              // ── Avatar ──────────────────────────────────────────
-                              // الـ Avatar فقط يحتاج الـ profileProvider للصورة
-                              _buildAvatar(userId, currentUser, ref),
+                              // ✅ Avatar مستقلة - لا تسبب إعادة بناء الـ AppBar
+                              // ✅ استخدام Consumer بدلاً من دالة _buildAvatar
+                              if (userId > 0)
+                                Consumer(
+                                  builder: (context, ref, _) {
+                                    final profileAsync = ref.watch(profileProvider(userId));
 
-                              // ── Greeting text ─────────────────────────
+                                    return profileAsync.when(
+                                      loading: () => const _AvatarPlaceholder(initials: ''),
+                                      error: (_, __) => const _AvatarPlaceholder(initials: '?'),
+                                      data: (user) {
+                                        final avatarUrl = user.avatarUrl;
+
+                                        if (avatarUrl != null && avatarUrl.isNotEmpty) {
+                                          return _NetworkAvatar(url: avatarUrl);
+                                        }
+
+                                        final name = user.displayName ?? currentUser?.displayName ?? '';
+                                        final email = currentUser?.email ?? '';
+
+                                        final initials = name.isNotEmpty
+                                            ? name[0].toUpperCase()
+                                            : email.isNotEmpty
+                                                ? email[0].toUpperCase()
+                                                : '؟';
+
+                                        return _AvatarPlaceholder(initials: initials);
+                                      },
+                                    );
+                                  },
+                                )
+                              else
+                                const _AvatarPlaceholder(initials: ''),
+
+                              // ── Greeting text (ثابت - لا يعاد بناؤه أبداً) ─────────
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -138,7 +167,7 @@ class DashboardScreen extends ConsumerWidget {
                                       ],
                                     ),
                                     const SizedBox(height: 3),
-                                    // ✅ اسم المستخدم - يظهر فوراً
+                                    // ✅ اسم المستخدم - ثابت ولا يتأثر بـ profileProvider
                                     Text(
                                       displayName,
                                       maxLines: 1,
@@ -321,51 +350,6 @@ class DashboardScreen extends ConsumerWidget {
           ],
         ),
       ),
-    );
-  }
-
-  /// بناء الـ Avatar بشكل منفصل لتجنب إعادة بناء غير ضرورية
-  Widget _buildAvatar(int userId, User? currentUser, WidgetRef ref) {
-    // إذا لم يوجد userId، نعرض placeholder
-    if (userId == 0) {
-      return const _AvatarPlaceholder(initials: '');
-    }
-
-    // نستخدم profileProvider فقط للـ avatar URL
-    final profileAsync = ref.watch(profileProvider(userId));
-    
-    return profileAsync.when(
-      loading: () => const _AvatarPlaceholder(initials: ''),
-      error: (error, stack) {
-        debugPrint('⚠️ Avatar loading error for user $userId: $error');
-        // في حالة الخطأ، نحاول استخراج أول حرف من الاسم الموجود في currentUser
-        final initials = (currentUser?.displayName?.trim().isNotEmpty == true)
-            ? currentUser!.displayName![0].toUpperCase()
-            : (currentUser?.email?.isNotEmpty == true)
-                ? currentUser!.email![0].toUpperCase()
-                : '؟';
-        return _AvatarPlaceholder(initials: initials);
-      },
-      data: (user) {
-        final avatarUrl = user.avatarUrl;
-        
-        // إذا كان هناك صورة، نعرضها
-        if (avatarUrl != null && avatarUrl.trim().isNotEmpty) {
-          return _NetworkAvatar(url: avatarUrl);
-        }
-        
-        // إذا لم تكن هناك صورة، نعرض الحرف الأول من الاسم
-        final name = user.displayName?.trim() ?? currentUser?.displayName ?? '';
-        final email = user.email ?? currentUser?.email ?? '';
-        
-        final initials = name.isNotEmpty
-            ? name[0].toUpperCase()
-            : email.isNotEmpty
-                ? email[0].toUpperCase()
-                : '؟';
-        
-        return _AvatarPlaceholder(initials: initials);
-      },
     );
   }
 
