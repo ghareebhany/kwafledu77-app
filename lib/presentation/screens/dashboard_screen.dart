@@ -83,24 +83,50 @@ SliverAppBar(
               Row(
                 children: [
                   // ── Avatar ──────────────────────────────────────────
-profileAsync.when(
-  loading: () => _AvatarPlaceholder(initials: ''),
-  error: (_, __) => _AvatarPlaceholder(initials: ''),
-  data: (user) {
-    final name = user.displayName ?? '';
-    final avatar = user.avatarUrl ?? '';
+class _Avatar extends StatelessWidget {
+  final User? user;
+  final bool isLoading;
+  const _Avatar({required this.user, required this.isLoading});
 
-    final initials = name.trim().isNotEmpty
-        ? name.trim()[0].toUpperCase()
-        : '؟';
+  String _getInitials() {
+    final name = user?.displayName ?? '';
+    return name.isNotEmpty ? name[0].toUpperCase() : 'م';
+  }
 
-    if (avatar.isNotEmpty) {
-      return _NetworkAvatar(url: avatar);
-    }
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 46,
+        height: 46,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white.withValues(alpha: 0.15),
+          border: Border.all(
+              color: AppPalette.sage.withValues(alpha: 0.5), width: 2),
+        ),
+        child: isLoading
+            ? const Center(
+                child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white)))
+            : (user?.avatarUrl != null && user!.avatarUrl!.isNotEmpty)
+                ? ClipOval(
+                    child: CachedNetworkImage(
+                        imageUrl: user!.avatarUrl!,
+                        fit: BoxFit.cover,
+                        errorWidget: (_, __, ___) => _initials()))
+                : _initials(),
+      );
 
-    return _AvatarPlaceholder(initials: initials);
-  },
-),
+  Widget _initials() => Center(
+          child: Text(
+        _getInitials(),
+        style: const TextStyle(
+            color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+      ));
+}
+
 
                   // ── Greeting text ────────────────────────────────────
                   Expanded(
