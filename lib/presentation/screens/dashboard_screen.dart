@@ -13,7 +13,7 @@ import '../providers/profile_provider.dart';
 /// رسالة الترحيب حسب الوقت
 String _greeting() {
   final h = DateTime.now().hour;
-  if (h >= 5  && h < 12) return 'صباح الخير';
+  if (h >= 5 && h < 12) return 'صباح الخير';
   if (h >= 12 && h < 17) return 'مساء النور';
   if (h >= 17 && h < 21) return 'مساء الخير';
   return 'تصبح على خير';
@@ -22,10 +22,10 @@ String _greeting() {
 /// أيقونة الوقت
 IconData _greetingIcon() {
   final h = DateTime.now().hour;
-  if (h >= 5  && h < 12) return Icons.wb_sunny_rounded;
+  if (h >= 5 && h < 12) return Icons.wb_sunny_rounded;
   if (h >= 12 && h < 17) return Icons.light_mode_rounded;
   if (h >= 17 && h < 21) return Icons.nights_stay_rounded;
-  return 'تصبح على خير' == '' ? Icons.bedtime_rounded : Icons.bedtime_rounded;
+  return Icons.bedtime_rounded;
 }
 
 class DashboardScreen extends ConsumerWidget {
@@ -33,10 +33,14 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme        = Theme.of(context);
-    final authState    = ref.watch(authProvider);
-    final dashAsync    = ref.watch(dashboardProvider);
-    final userId       = authState is AuthAuthenticated ? authState.user.id : 0;
+    final theme = Theme.of(context);
+    final authState = ref.watch(authProvider);
+    final dashAsync = ref.watch(dashboardProvider);
+
+    // ✅ الحصول على المستخدم مباشرة من authState
+    final currentUser = authState is AuthAuthenticated ? authState.user : null;
+
+    final userId = authState is AuthAuthenticated ? authState.user.id : 0;
     final profileAsync = userId > 0
         ? ref.watch(profileProvider(userId))
         : const AsyncValue<User>.loading();
@@ -50,167 +54,135 @@ class DashboardScreen extends ConsumerWidget {
         child: CustomScrollView(
           slivers: [
             // ── SliverAppBar ────────────────────────────────────────────
-SliverAppBar(
-  expandedHeight: 135,
-  pinned: true,
-  elevation: 0,
-  backgroundColor: AppTheme.brandRed,
-  systemOverlayStyle: SystemUiOverlayStyle.light,
-  flexibleSpace: FlexibleSpaceBar(
-    collapseMode: CollapseMode.parallax,
-    background: Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFE52027),
-            Color(0xFFBF1219),
-            Color(0xFF8B0D12),
-          ],
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-
-              // ── Top Row: Avatar + Greeting + Actions ─────────────────
-              Row(
-                children: [
-                  // ── Avatar ──────────────────────────────────────────
-class _Avatar extends StatelessWidget {
-  final User? user;
-  final bool isLoading;
-  const _Avatar({required this.user, required this.isLoading});
-
-  String _getInitials() {
-    final name = user?.displayName ?? '';
-    return name.isNotEmpty ? name[0].toUpperCase() : 'م';
-  }
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: 46,
-        height: 46,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white.withValues(alpha: 0.15),
-          border: Border.all(
-              color: AppPalette.sage.withValues(alpha: 0.5), width: 2),
-        ),
-        child: isLoading
-            ? const Center(
-                child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white)))
-            : (user?.avatarUrl != null && user!.avatarUrl!.isNotEmpty)
-                ? ClipOval(
-                    child: CachedNetworkImage(
-                        imageUrl: user!.avatarUrl!,
-                        fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) => _initials()))
-                : _initials(),
-      );
-
-  Widget _initials() => Center(
-          child: Text(
-        _getInitials(),
-        style: const TextStyle(
-            color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-      ));
-}
-
-
-                  // ── Greeting text ────────────────────────────────────
-                  Expanded(
-                    child: profileAsync.when(
-                      loading: () => _GreetingShimmer(),
-                      error: (_, __) => const SizedBox.shrink(),
-                      data: (user) => Column(
+            SliverAppBar(
+              expandedHeight: 135,
+              pinned: true,
+              elevation: 0,
+              backgroundColor: AppTheme.brandRed,
+              systemOverlayStyle: SystemUiOverlayStyle.light,
+              flexibleSpace: FlexibleSpaceBar(
+                collapseMode: CollapseMode.parallax,
+                background: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFFE52027),
+                        Color(0xFFBF1219),
+                        Color(0xFF8B0D12),
+                      ],
+                    ),
+                  ),
+                  child: SafeArea(
+                    bottom: false,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          // وقت اليوم
+                          // ── Top Row: Avatar + Greeting + Actions ─────────────────
                           Row(
                             children: [
-                              Icon(
-                                _greetingIcon(),
-                                color: Colors.white.withValues(alpha: 0.85),
-                                size: 14,
+                              // ── Avatar ──────────────────────────────────────────
+                              profileAsync.when(
+                                loading: () => const _AvatarPlaceholder(initials: ''),
+                                error: (_, __) => const _AvatarPlaceholder(initials: ''),
+                                data: (user) {
+                                  final name = user.displayName ?? '';
+                                  final avatar = user.avatarUrl ?? '';
+
+                                  final initials = name.trim().isNotEmpty
+                                      ? name.trim()[0].toUpperCase()
+                                      : '؟';
+
+                                  if (avatar.isNotEmpty) {
+                                    return _NetworkAvatar(url: avatar);
+                                  }
+
+                                  return _AvatarPlaceholder(initials: initials);
+                                },
                               ),
-                              const SizedBox(width: 4),
-                              Text(
-                                _greeting(),
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.85),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
+
+                              // ── Greeting text (المعدل) ─────────────────────────
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // وقت اليوم
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          _greetingIcon(),
+                                          color: Colors.white70,
+                                          size: 14,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          _greeting(),
+                                          style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 3),
+                                    // اسم المستخدم - يأتي مباشرة من authState
+                                    Text(
+                                      currentUser?.displayName ?? 'المستخدم',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
                                 ),
+                              ),
+
+                              // ── Actions ──────────────────────────────────────────
+                              IconButton(
+                                icon: const Icon(Icons.notifications_none_rounded,
+                                    color: Colors.white),
+                                onPressed: () {},
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.logout_rounded,
+                                    color: Colors.white),
+                                onPressed: () async {
+                                  final ok = await _confirmLogout(context);
+                                  if (ok == true) {
+                                    ref.read(authProvider.notifier).logout();
+                                  }
+                                },
                               ),
                             ],
                           ),
-                          const SizedBox(height: 3),
-                          // اسم المستخدم
-                          Text(
-                            user.displayName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w800,
-                              height: 1.1,
+
+                          // ── Bottom subtitle ──────────────────────────────────────
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Text(
+                              'تابع تقدمك اليوم واستمر في التعلم 🎯',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.75),
+                                fontSize: 12,
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
                   ),
-
-                  // ── Actions ──────────────────────────────────────────
-                  IconButton(
-                    icon: const Icon(Icons.notifications_none_rounded,
-                        color: Colors.white),
-                    onPressed: () {},
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.logout_rounded,
-                        color: Colors.white),
-                    onPressed: () async {
-                      final ok = await _confirmLogout(context);
-                      if (ok == true) {
-                        ref.read(authProvider.notifier).logout();
-                      }
-                    },
-                  ),
-                ],
-              ),
-
-              // ── Bottom subtitle ──────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Text(
-                  'تابع تقدمك اليوم واستمر في التعلم 🎯',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.75),
-                    fontSize: 12,
-                  ),
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  ),
-),
+            ),
 
             // ── Stats ───────────────────────────────────────────────────
             dashAsync.when(
@@ -296,13 +268,15 @@ class _Avatar extends StatelessWidget {
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 16, offset: const Offset(0, 4))
+                              blurRadius: 16,
+                              offset: const Offset(0, 4))
                           ],
                         ),
                         child: Column(
                           children: [
                             Container(
-                              width: 72, height: 72,
+                              width: 72,
+                              height: 72,
                               decoration: BoxDecoration(
                                 color: AppTheme.brandRed.withValues(alpha: 0.08),
                                 shape: BoxShape.circle,
@@ -341,23 +315,23 @@ class _Avatar extends StatelessWidget {
     );
   }
 
-Future<bool?> _confirmLogout(BuildContext context) => showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('تسجيل الخروج'),
-        content: const Text('هل تريد تسجيل الخروج؟'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('إلغاء'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('خروج'),
-          ),
-        ],
-      ),
-    );
+  Future<bool?> _confirmLogout(BuildContext context) => showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('تسجيل الخروج'),
+          content: const Text('هل تريد تسجيل الخروج؟'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('إلغاء'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('خروج'),
+            ),
+          ],
+        ),
+      );
 }
 
 // ── بطاقة إحصاء ───────────────────────────────────────────────────────────────
@@ -396,7 +370,8 @@ class _StatCard extends StatelessWidget {
       ),
       child: Column(children: [
         Container(
-          width: 38, height: 38,
+          width: 38,
+          height: 38,
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.2),
             shape: BoxShape.circle,
@@ -450,16 +425,19 @@ class _InProgressCard extends StatelessWidget {
             child: item.thumbnail.isNotEmpty
                 ? CachedNetworkImage(
                     imageUrl: item.thumbnail,
-                    width: 90, height: 90,
+                    width: 90,
+                    height: 90,
                     fit: BoxFit.cover,
                     errorWidget: (_, __, ___) => Container(
-                        width: 90, height: 90,
+                        width: 90,
+                        height: 90,
                         color: theme.colorScheme.primaryContainer,
                         child: Icon(Icons.play_circle_outline,
                             color: theme.colorScheme.primary)),
                   )
                 : Container(
-                    width: 90, height: 90,
+                    width: 90,
+                    height: 90,
                     color: theme.colorScheme.primaryContainer,
                     child: Icon(Icons.play_circle_outline,
                         color: theme.colorScheme.primary)),
@@ -492,8 +470,7 @@ class _InProgressCard extends StatelessWidget {
                     Text(
                       '${item.completedLessons}/${item.totalLessons} درس',
                       style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF9A9490)),
+                          fontSize: 11, color: Color(0xFF9A9490)),
                     ),
                     const Spacer(),
                     Container(
@@ -540,8 +517,8 @@ class _NetworkAvatar extends StatelessWidget {
         child: CachedNetworkImage(
           imageUrl: url,
           fit: BoxFit.cover,
-          placeholder: (_, __) => _AvatarPlaceholder(initials: ''),
-          errorWidget: (_, __, ___) => _AvatarPlaceholder(initials: '؟'),
+          placeholder: (_, __) => const _AvatarPlaceholder(initials: ''),
+          errorWidget: (_, __, ___) => const _AvatarPlaceholder(initials: '؟'),
         ),
       ),
     );
@@ -580,6 +557,8 @@ class _AvatarPlaceholder extends StatelessWidget {
 
 // ── Greeting shimmer أثناء تحميل البروفايل ────────────────────────────────────
 class _GreetingShimmer extends StatelessWidget {
+  const _GreetingShimmer();
+
   @override
   Widget build(BuildContext context) {
     return Column(
