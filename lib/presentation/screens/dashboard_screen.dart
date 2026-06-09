@@ -160,7 +160,7 @@ class DashboardScreen extends ConsumerWidget {
                                           _greeting(),
                                           style: const TextStyle(
                                             color: Colors.white70,
-                                            fontSize: 12,
+                                            fontSize: 14,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
