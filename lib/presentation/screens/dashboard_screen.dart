@@ -39,17 +39,39 @@ class DashboardScreen extends ConsumerWidget {
 
     // ✅ الحصول على المستخدم مباشرة من authState
     final currentUser = authState is AuthAuthenticated ? authState.user : null;
-
-    final userId = authState is AuthAuthenticated ? authState.user.id : 0;
-    final profileAsync = userId > 0
-        ? ref.watch(profileProvider(userId))
-        : const AsyncValue<User>.loading();
+    
+    // ✅ اسم المستخدم مع منطق قوي جداً
+    // يفحص عدة مصادر للاسم
+    String getDisplayName() {
+      // 1. من authState
+      if (currentUser?.displayName?.trim().isNotEmpty == true) {
+        return currentUser!.displayName!.trim();
+      }
+      
+      // 2. من email (يأخذ الجزء قبل @)
+      if (currentUser?.email?.trim().isNotEmpty == true) {
+        final email = currentUser!.email!.trim();
+        final atIndex = email.indexOf('@');
+        if (atIndex > 0) {
+          return email.substring(0, atIndex);
+        }
+        return email;
+      }
+      
+      // 3. قيمة افتراضية ترحيبية
+      return 'أهلاً بك';
+    }
+    
+    final String displayName = getDisplayName();
+    final userId = currentUser?.id ?? 0;
 
     return Scaffold(
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(dashboardProvider);
-          if (userId > 0) ref.invalidate(profileProvider(userId));
+          if (userId > 0) {
+            ref.invalidate(profileProvider(userId));
+          }
         },
         child: CustomScrollView(
           slivers: [
@@ -84,28 +106,13 @@ class DashboardScreen extends ConsumerWidget {
                         children: [
                           // ── Top Row: Avatar + Greeting + Actions ─────────────────
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               // ── Avatar ──────────────────────────────────────────
-                              profileAsync.when(
-                                loading: () => const _AvatarPlaceholder(initials: ''),
-                                error: (_, __) => const _AvatarPlaceholder(initials: ''),
-                                data: (user) {
-                                  final name = user.displayName ?? '';
-                                  final avatar = user.avatarUrl ?? '';
+                              // الـ Avatar فقط يحتاج الـ profileProvider للصورة
+                              _buildAvatar(userId, currentUser, ref),
 
-                                  final initials = name.trim().isNotEmpty
-                                      ? name.trim()[0].toUpperCase()
-                                      : '؟';
-
-                                  if (avatar.isNotEmpty) {
-                                    return _NetworkAvatar(url: avatar);
-                                  }
-
-                                  return _AvatarPlaceholder(initials: initials);
-                                },
-                              ),
-
-                              // ── Greeting text (المعدل) ─────────────────────────
+                              // ── Greeting text ─────────────────────────
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -131,9 +138,9 @@ class DashboardScreen extends ConsumerWidget {
                                       ],
                                     ),
                                     const SizedBox(height: 3),
-                                    // اسم المستخدم - يأتي مباشرة من authState
+                                    // ✅ اسم المستخدم - يظهر فوراً
                                     Text(
-                                      currentUser?.displayName ?? 'المستخدم',
+                                      displayName,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
@@ -151,6 +158,7 @@ class DashboardScreen extends ConsumerWidget {
                                 icon: const Icon(Icons.notifications_none_rounded,
                                     color: Colors.white),
                                 onPressed: () {},
+                                tooltip: 'الإشعارات',
                               ),
                               IconButton(
                                 icon: const Icon(Icons.logout_rounded,
@@ -158,9 +166,10 @@ class DashboardScreen extends ConsumerWidget {
                                 onPressed: () async {
                                   final ok = await _confirmLogout(context);
                                   if (ok == true) {
-                                    ref.read(authProvider.notifier).logout();
+                                    await ref.read(authProvider.notifier).logout();
                                   }
                                 },
+                                tooltip: 'تسجيل الخروج',
                               ),
                             ],
                           ),
@@ -312,6 +321,51 @@ class DashboardScreen extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  /// بناء الـ Avatar بشكل منفصل لتجنب إعادة بناء غير ضرورية
+  Widget _buildAvatar(int userId, User? currentUser, WidgetRef ref) {
+    // إذا لم يوجد userId، نعرض placeholder
+    if (userId == 0) {
+      return const _AvatarPlaceholder(initials: '');
+    }
+
+    // نستخدم profileProvider فقط للـ avatar URL
+    final profileAsync = ref.watch(profileProvider(userId));
+    
+    return profileAsync.when(
+      loading: () => const _AvatarPlaceholder(initials: ''),
+      error: (error, stack) {
+        debugPrint('⚠️ Avatar loading error for user $userId: $error');
+        // في حالة الخطأ، نحاول استخراج أول حرف من الاسم الموجود في currentUser
+        final initials = (currentUser?.displayName?.trim().isNotEmpty == true)
+            ? currentUser!.displayName![0].toUpperCase()
+            : (currentUser?.email?.isNotEmpty == true)
+                ? currentUser!.email![0].toUpperCase()
+                : '؟';
+        return _AvatarPlaceholder(initials: initials);
+      },
+      data: (user) {
+        final avatarUrl = user.avatarUrl;
+        
+        // إذا كان هناك صورة، نعرضها
+        if (avatarUrl != null && avatarUrl.trim().isNotEmpty) {
+          return _NetworkAvatar(url: avatarUrl);
+        }
+        
+        // إذا لم تكن هناك صورة، نعرض الحرف الأول من الاسم
+        final name = user.displayName?.trim() ?? currentUser?.displayName ?? '';
+        final email = user.email ?? currentUser?.email ?? '';
+        
+        final initials = name.isNotEmpty
+            ? name[0].toUpperCase()
+            : email.isNotEmpty
+                ? email[0].toUpperCase()
+                : '؟';
+        
+        return _AvatarPlaceholder(initials: initials);
+      },
     );
   }
 
@@ -518,7 +572,7 @@ class _NetworkAvatar extends StatelessWidget {
           imageUrl: url,
           fit: BoxFit.cover,
           placeholder: (_, __) => const _AvatarPlaceholder(initials: ''),
-          errorWidget: (_, __, ___) => const _AvatarPlaceholder(initials: '؟'),
+          errorWidget: (_, __, ___) => const _AvatarPlaceholder(initials: '?'),
         ),
       ),
     );
@@ -551,38 +605,6 @@ class _AvatarPlaceholder extends StatelessWidget {
                 fontWeight: FontWeight.w800,
               ),
             ),
-    );
-  }
-}
-
-// ── Greeting shimmer أثناء تحميل البروفايل ────────────────────────────────────
-class _GreetingShimmer extends StatelessWidget {
-  const _GreetingShimmer();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 70,
-          height: 11,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.25),
-            borderRadius: BorderRadius.circular(6),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          width: 130,
-          height: 16,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.35),
-            borderRadius: BorderRadius.circular(6),
-          ),
-        ),
-      ],
     );
   }
 }
