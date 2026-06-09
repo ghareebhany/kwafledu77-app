@@ -108,7 +108,6 @@ class DashboardScreen extends ConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               // ✅ Avatar مستقلة - لا تسبب إعادة بناء الـ AppBar
-                              // ✅ استخدام Consumer بدلاً من دالة _buildAvatar
                               if (userId > 0)
                                 Consumer(
                                   builder: (context, ref, _) {
@@ -141,41 +140,46 @@ class DashboardScreen extends ConsumerWidget {
                               else
                                 const _AvatarPlaceholder(initials: ''),
 
-                              // ── Greeting text (ثابت - لا يعاد بناؤه أبداً) ─────────
+                              // ✅ زيادة المسافة بين الصورة والنص
+                              const SizedBox(width: 14),
+
+                              // ── Greeting text (محسن الخط والمسافات) ───────────────
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    // وقت اليوم
+                                    // وقت اليوم - خط Bold وحجم أكبر
                                     Row(
                                       children: [
                                         Icon(
                                           _greetingIcon(),
                                           color: Colors.white70,
-                                          size: 14,
+                                          size: 16,  // ✅ تكبير الأيقونة قليلاً
                                         ),
-                                        const SizedBox(width: 4),
+                                        const SizedBox(width: 6),  // ✅ زيادة المسافة قليلاً
                                         Text(
                                           _greeting(),
                                           style: const TextStyle(
                                             color: Colors.white70,
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w500,
+                                            fontSize: 15,  // ✅ من 12 إلى 15 (أكبر)
+                                            fontWeight: FontWeight.w700,  // ✅ من w500 إلى w700 (Bold)
+                                            letterSpacing: 0.3,  // ✅ إضافة تباعد بسيط للحروف
                                           ),
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 3),
-                                    // ✅ اسم المستخدم - ثابت ولا يتأثر بـ profileProvider
+                                    const SizedBox(height: 4),  // ✅ زيادة المسافة قليلاً بين التحية والاسم
+                                    // اسم المستخدم
                                     Text(
                                       displayName,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
                                         color: Colors.white,
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.w800,
+                                        fontSize: 18,  // ✅ من 17 إلى 18 (أكبر قليلاً)
+                                        fontWeight: FontWeight.w800,  // ✅ أقوى من التحية بقليل
+                                        letterSpacing: 0.2,
                                       ),
                                     ),
                                   ],
